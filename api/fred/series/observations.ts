@@ -1,25 +1,27 @@
+// api/fred/series/observations.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-const BASE = 'https://api.stlouisfed.org/fred/series/observations';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(req.query)) {
-      if (k === 'api_key') continue;
-      Array.isArray(v) ? v.forEach(x => qs.append(k, String(x))) : qs.append(k, String(v));
-    }
-    qs.set('api_key', process.env.FRED_API_KEY ?? '');
-    if (!qs.get('file_type')) qs.set('file_type', 'json');
+    const fredKey = process.env.FRED_API_KEY;
+    const sp = new URLSearchParams();
 
-    const url = `${BASE}?${qs.toString()}`;
-    const upstream = await fetch(url, { headers: { 'User-Agent': 'vercel-func' } });
-    const body = await upstream.text();
+    // copy client query, but don't allow api_key/file_type from client
+    for (const [k, v] of Object.entries(req.query)) {
+      if (k === 'api_key' || k === 'file_type') continue;
+      if (Array.isArray(v)) v.forEach(x => sp.append(k, x));
+      else if (v != null) sp.append(k, String(v));
+    }
+    if (fredKey) sp.set('api_key', fredKey);
+    if (!sp.has('file_type')) sp.set('file_type', 'json');
+
+    const url = `https://api.stlouisfed.org/fred/series/observations?${sp.toString()}`;
+    const r = await fetch(url);
+    const body = await r.text();
 
     res
-      .status(upstream.status)
-      .setHeader('Content-Type', upstream.headers.get('content-type') || 'application/json')
-      .setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600')
+      .status(r.status)
+      .setHeader('Content-Type', r.headers.get('content-type') || 'application/json')
       .send(body);
   } catch (e: any) {
     res.status(500).json({ error: e?.message || 'FRED proxy error' });
