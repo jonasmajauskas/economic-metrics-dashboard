@@ -19,7 +19,7 @@ import {
   useEurostatLongTermRatesByCountry,
 } from '../api/useECBData';
 
-import type { ByCountryMillion, ByCountryValue } from '../api/useECBData';
+import type { ByCountryMillion } from '../api/useECBData';
 
 const Dashboard: React.FC = () => {
   const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({
@@ -48,7 +48,7 @@ const Dashboard: React.FC = () => {
   };
   const { data: gdpPerCap } = useECBGdpPerCapitaComputed(gdpData, population);
 
-  const { data: longTermRates, isLoading: isLoadingRates, error: errorRates } =
+  const { data: longTermRates } =
     useEurostatLongTermRatesByCountry();
 
   // --- World Bank Data ---
@@ -62,14 +62,14 @@ const Dashboard: React.FC = () => {
     error: wbError,
   } = useWorldBankData();
 
-    const normalizedGdpWB: ByCountryMillion = gdpWB
-    ? Object.fromEntries(
-        Object.entries(gdpWB).map(([cc, { period, value }]) => [
-          cc,
-          { period, valueMillion: value },
-        ])
-      )
-    : {};
+    // const normalizedGdpWB: ByCountryMillion = gdpWB
+    // ? Object.fromEntries(
+    //     Object.entries(gdpWB).map(([cc, { period, value }]) => [
+    //       cc,
+    //       { period, valueMillion: value },
+    //     ])
+    //   )
+    // : {};
 
 // --- Normalize World Bank data ---
 const ISO3_TO_ISO2: Record<string, string> = {

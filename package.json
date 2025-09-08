@@ -19,11 +19,12 @@
     "tailwind-merge": "latest"
   },
   "devDependencies": {
-    "@types/node": "^20.11.18",
+    "@types/node": "^20.19.13",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
     "@typescript-eslint/eslint-plugin": "^5.54.0",
     "@typescript-eslint/parser": "^5.54.0",
+    "@vercel/node": "^5.3.21",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "latest",
     "eslint": "^8.50.0",
