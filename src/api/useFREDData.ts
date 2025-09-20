@@ -36,6 +36,7 @@ const apiKey = import.meta.env.VITE_FRED_API_KEY;
     async function fetchSeries(seriesId: string, key: FredSeriesKey) {
       const url = `/api/fred/series/observations?series_id=${seriesId}&api_key=${apiKey}&file_type=json`;
 
+      // console.log("API KEY from env:", import.meta.env.VITE_FRED_API_KEY);
       const res = await fetch(url);
       if (!res.ok) throw new Error(`FRED request failed: ${res.status}`);
       const json = await res.json();
