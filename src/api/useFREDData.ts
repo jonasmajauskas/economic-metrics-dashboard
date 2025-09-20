@@ -18,10 +18,9 @@ const FRED_SERIES: Record<string, string> = {
   treasury2y: "DGS2",
   treasury30y: "DGS30",
   mortgage30y: "MORTGAGE30US",
-  autoLoan60m: "RIFLPBCIANM60NM",   // ✅ correct ID
+  autoLoan60m: "RIFLPBCIANM60NM",
   creditCardAPR: "TERMCBCCALLNS",
 };
-
 
 type FredSeriesKey = keyof typeof FRED_SERIES;
 type FredData = Record<FredSeriesKey, FredSeries>;
@@ -31,11 +30,14 @@ export function useFREDData() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+const apiKey = import.meta.env.VITE_FRED_API_KEY;
+
   useEffect(() => {
     async function fetchSeries(seriesId: string, key: FredSeriesKey) {
-      const res = await fetch(
-        `/api/fred/series/observations?series_id=${seriesId}&api_key=2455b05c18ab8ca246f2ff73f64a5aa6&file_type=json`
-      );
+      const url = `/api/fred/series/observations?series_id=${seriesId}&api_key=${apiKey}&file_type=json`;
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`FRED request failed: ${res.status}`);
       const json = await res.json();
       const obs: FredObservation[] = json.observations;
 
@@ -43,12 +45,10 @@ export function useFREDData() {
         return { seriesId, latest: null };
       }
 
-      // Inflation special case: compute YoY % from CPIAUCSL
+      // Special case: compute YoY % for CPIAUCSL
       if (key === "inflationCPI") {
-        const latest = [...obs].reverse().find((o) => o.value !== ".");
-        const twelveAgo = [...obs]
-          .reverse()
-          .find((o, i) => o.value !== "." && i > 12); // approx 12 months back
+        const latest = [...obs].reverse().find(o => o.value !== ".");
+        const twelveAgo = [...obs].reverse().find((o, i) => o.value !== "." && i > 12);
         if (latest && twelveAgo) {
           const value =
             ((parseFloat(latest.value) - parseFloat(twelveAgo.value)) /
@@ -58,8 +58,8 @@ export function useFREDData() {
         }
       }
 
-      // Default case: just take latest non-missing value
-      const latest = [...obs].reverse().find((o) => o.value !== ".");
+      // Default: take latest non-missing value
+      const latest = [...obs].reverse().find(o => o.value !== ".");
       return {
         seriesId,
         latest: latest
@@ -85,7 +85,7 @@ export function useFREDData() {
     }
 
     loadAll();
-  }, []);
+  }, [apiKey]);
 
   return { data, isLoading, error };
 }
