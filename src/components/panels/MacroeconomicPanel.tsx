@@ -12,12 +12,12 @@ type ByCountryValue = Record<
 >;
 
 type MacroeconomicPanelProps = {
-  gdpData?: ByCountryMillion | null;       // values in "millions of local currency" per your source
-  gdpPerCapitaData?: ByCountryValue | null;// values in "local currency per person"
-  inflationData?: ByCountryValue | null;   // %
-  unemploymentData?: ByCountryValue | null;// %
-  interestRateData?: ByCountryValue | null;// %
-  mortgageRateData?: ByCountryValue | null;// (unused here)
+  gdpData?: ByCountryMillion | null;        // values in "millions of currency" (we display as USD)
+  gdpPerCapitaData?: ByCountryValue | null; // values in "currency per person" (we display as USD)
+  inflationData?: ByCountryValue | null;    // %
+  unemploymentData?: ByCountryValue | null; // %
+  interestRateData?: ByCountryValue | null; // %
+  mortgageRateData?: ByCountryValue | null; // (unused here)
 };
 
 // Country map (display names + your flag codes)
@@ -32,7 +32,7 @@ const REF_AREA_MAP: Record<string, { name: string; code: string }> = {
   EE: { name: 'Estonia',     code: 'estonia' },
   LV: { name: 'Latvia',      code: 'latvia' },
 
-  // --- Others (local currencies) ---
+  // --- Others
   US: { name: 'United States', code: 'US' },
   RU: { name: 'Russia',        code: 'RU' },
   CN: { name: 'China',         code: 'china' },
@@ -40,42 +40,20 @@ const REF_AREA_MAP: Record<string, { name: string; code: string }> = {
   IN: { name: 'India',         code: 'india' },
 };
 
-// Per-country currency (no conversion — just formatting)
-const CURRENCY_BY_REF: Record<
-  string,
-  { code: string; symbol: string; perCapitaDecimals?: number }
-> = {
-  // Euro area
-  DE: { code: 'EUR', symbol: '€' },
-  FR: { code: 'EUR', symbol: '€' },
-  ES: { code: 'EUR', symbol: '€' },
-  NL: { code: 'EUR', symbol: '€' },
-  IT: { code: 'EUR', symbol: '€' },
-  LT: { code: 'EUR', symbol: '€' },
-  EE: { code: 'EUR', symbol: '€' },
-  LV: { code: 'EUR', symbol: '€' },
+// ---------- USD-only formatters (no FX conversion here) ----------
 
-  // Others
-  US: { code: 'USD', symbol: '$' },
-  JP: { code: 'JPY', symbol: '¥', perCapitaDecimals: 0 }, // JPY often shown without decimals
-  CN: { code: 'CNY', symbol: '¥' },
-  RU: { code: 'RUB', symbol: '₽' },
-  IN: { code: 'INR', symbol: '₹' },
-};
-
-// ---------- formatters (no FX conversion) ----------
-
-// GDP comes in *millions of local currency*. Convert to trillions or billions for display.
-function formatGDPLocal(millionsLocal: number, symbol: string) {
-  const trillions = millionsLocal / 1_000_000; // 1,000,000 million = 1 trillion
-  if (trillions >= 1) return `${symbol}${trillions.toFixed(2)}T`;
-  const billions = millionsLocal / 1_000;      // 1,000 million = 1 billion
-  return `${symbol}${Math.round(billions).toLocaleString()}B`;
+// GDP comes in *millions*. We render as $ trillions/billions for readability.
+function formatGDPUSD(millions: number) {
+  const trillions = millions / 1_000_000; // 1,000,000 million = 1 trillion
+  if (trillions >= 1) return `$${trillions.toFixed(2)}T`;
+  const billions = millions / 1_000;      // 1,000 million = 1 billion
+  return `$${Math.round(billions).toLocaleString()}B`;
 }
 
-function formatPerCapitaLocal(amount: number, symbol: string, decimals = 0) {
+// Per-capita displayed as USD; default no decimals (tweak if you prefer 0/2)
+function formatPerCapitaUSD(amount: number, decimals = 0) {
   const v = Number.isFinite(amount) ? amount : 0;
-  return `${symbol}${v.toLocaleString(undefined, {
+  return `$${v.toLocaleString(undefined, {
     maximumFractionDigits: decimals,
     minimumFractionDigits: decimals,
   })}`;
@@ -90,41 +68,33 @@ const MacroeconomicPanel: React.FC<MacroeconomicPanelProps> = ({
 }) => {
   const rows = Object.entries(REF_AREA_MAP)
     .map(([ref, { name, code }]) => {
-      const cur = CURRENCY_BY_REF[ref] ?? { code: 'USD', symbol: '$' };
+      const gdpMillion = Number(gdpData?.[ref]?.valueMillion ?? 0);  // millions (treated/displayed as USD)
+      const perCapita  = Number(gdpPerCapitaData?.[ref]?.value ?? 0); // per person (treated/displayed as USD)
+      const inflation  = Number(inflationData?.[ref]?.value ?? 0);
+      const unemp      = Number(unemploymentData?.[ref]?.value ?? 0);
+      const rate       = Number(interestRateData?.[ref]?.value ?? 0);
 
-      const gdpMillionLocal = Number(gdpData?.[ref]?.valueMillion ?? 0); // millions of *local* currency
-      const perCapitaLocal  = Number(gdpPerCapitaData?.[ref]?.value ?? 0); // local currency / person
-      const inflationPct    = Number(inflationData?.[ref]?.value ?? 0);
-      const unemploymentPct = Number(unemploymentData?.[ref]?.value ?? 0);
-      const interestRate    = Number(interestRateData?.[ref]?.value ?? 0);
+      // Pre-format for the UI (USD only)
+      const gdpDisplay        = formatGDPUSD(gdpMillion);
+      const gdpPerCapitaDisp  = formatPerCapitaUSD(perCapita, 0);
 
-      // Pre-format for the UI (no conversions)
-      const gdpDisplay        = formatGDPLocal(gdpMillionLocal, cur.symbol);
-      const gdpPerCapitaDisp  = formatPerCapitaLocal(
-        perCapitaLocal,
-        cur.symbol,
-        cur.perCapitaDecimals ?? 0
-      );
-
-      // For sorting by GDP size, use trillions (still local currency; just numeric for ranking)
-      const gdpTrillionsLocal = gdpMillionLocal / 1_000_000;
+      // For sorting by GDP size, use trillions (numeric)
+      const gdpTrillions = gdpMillion / 1_000_000;
 
       return {
         ref,
         name,
         code,
-        currencyCode: cur.code,
-        currencySymbol: cur.symbol,
-        gdpTrillionsLocal,
+        gdpTrillions,
         gdpDisplay,
         gdpPerCapitaDisp,
-        inflation: Number.isFinite(inflationPct) ? inflationPct : 0,
-        unemployment: Number.isFinite(unemploymentPct) ? unemploymentPct : 0,
-        interestRate: Number.isFinite(interestRate) ? interestRate : 0,
+        inflation: Number.isFinite(inflation) ? inflation : 0,
+        unemployment: Number.isFinite(unemp) ? unemp : 0,
+        interestRate: Number.isFinite(rate) ? rate : 0,
       };
     })
-    // Sort by GDP (local) descending for a sensible order
-    .sort((a, b) => b.gdpTrillionsLocal - a.gdpTrillionsLocal);
+    // Sort by GDP (descending)
+    .sort((a, b) => b.gdpTrillions - a.gdpTrillions);
 
   return (
     <div className="overflow-x-auto">
@@ -132,8 +102,8 @@ const MacroeconomicPanel: React.FC<MacroeconomicPanelProps> = ({
         <thead>
           <tr className="bg-secondary/50 text-secondary-foreground">
             <th className="px-4 py-2 text-left font-medium">Country</th>
-            <th className="px-4 py-2 text-center font-medium">GDP (local)</th>
-            <th className="px-4 py-2 text-center font-medium">GDP/capita (local)</th>
+            <th className="px-4 py-2 text-center font-medium">GDP (USD)</th>
+            <th className="px-4 py-2 text-center font-medium">GDP/capita (USD)</th>
             <th className="px-4 py-2 text-center font-medium">Inflation</th>
             <th className="px-4 py-2 text-center font-medium">Unemployment</th>
             <th className="px-4 py-2 text-center font-medium">Bond Yields</th>
@@ -147,21 +117,20 @@ const MacroeconomicPanel: React.FC<MacroeconomicPanelProps> = ({
                 idx % 2 === 0 ? 'bg-background' : 'bg-secondary/10'
               }`}
             >
-              {/* Country + currency code for clarity */}
+              {/* Country only (no currency code shown) */}
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
                   <CountryFlag country={r.code} size="sm" />
                   <span className="font-medium">{r.name}</span>
-                  <span className="text-xs text-muted-foreground">({r.currencyCode})</span>
                 </div>
               </td>
 
-              {/* GDP in local currency (pretty-printed) */}
+              {/* GDP in USD (pretty-printed) */}
               <td className="px-4 py-3 text-center tabular-nums">
                 <span className="font-medium">{r.gdpDisplay}</span>
               </td>
 
-              {/* GDP per capita in local currency */}
+              {/* GDP per capita in USD */}
               <td className="px-4 py-3 text-center tabular-nums">
                 <span className="font-medium">{r.gdpPerCapitaDisp}</span>
               </td>
@@ -181,9 +150,9 @@ const MacroeconomicPanel: React.FC<MacroeconomicPanelProps> = ({
         </tbody>
       </table>
 
-      {/* Tiny legend so future-you remembers it’s local currency */}
+      {/* Legend: clarify that we're displaying USD without converting here */}
       <p className="mt-2 text-[10px] text-muted-foreground">
-        GDP values shown in each country’s local currency (no FX conversion). “T” = trillions, “B” = billions of local currency units.
+        Values displayed in USD. If your source data is not already in USD, wire in FX conversion before formatting.
       </p>
     </div>
   );

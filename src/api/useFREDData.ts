@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 
-type FredObservation = { date: string; value: string };
+type FredObservation = {
+  date: string;
+  value: string;
+};
 
 type FredSeries = {
   seriesId: string;
@@ -10,14 +13,15 @@ type FredSeries = {
 const FRED_SERIES: Record<string, string> = {
   fedFunds: "FEDFUNDS",
   primeRate: "MPRIME",
-  inflationCPI: "CPIAUCSL",
+  inflationCPI: "CPIAUCSL", // raw CPI, compute YoY later
   treasury10y: "DGS10",
   treasury2y: "DGS2",
   treasury30y: "DGS30",
   mortgage30y: "MORTGAGE30US",
-  autoLoan60m: "RIFLPBCIANM60NM",
+  autoLoan60m: "RIFLPBCIANM60NM",   // ✅ correct ID
   creditCardAPR: "TERMCBCCALLNS",
 };
+
 
 type FredSeriesKey = keyof typeof FRED_SERIES;
 type FredData = Record<FredSeriesKey, FredSeries>;
@@ -29,42 +33,38 @@ export function useFREDData() {
 
   useEffect(() => {
     async function fetchSeries(seriesId: string, key: FredSeriesKey) {
-      const url = `/api/fred/series/observations?series_id=${encodeURIComponent(seriesId)}`;
+      const res = await fetch(
+        `/api/fred/series/observations?series_id=${seriesId}&api_key=2455b05c18ab8ca246f2ff73f64a5aa6&file_type=json`
+      );
+      const json = await res.json();
+      const obs: FredObservation[] = json.observations;
 
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
-      const text = await res.text();
-      if (!res.ok) {
-        // Surface the upstream error so you can see it in DevTools
-        throw new Error(`FRED ${res.status} ${res.statusText} :: ${text.slice(0, 200)}`);
+      if (!obs?.length) {
+        return { seriesId, latest: null };
       }
 
-      const json = JSON.parse(text) as { observations?: FredObservation[] };
-      const obs = json.observations || [];
-      if (!obs.length) return { seriesId, latest: null };
-
-      // Find latest non-missing value
-      const latest = [...obs].reverse().find((o) => o.value !== ".");
-      if (!latest) return { seriesId, latest: null };
-
-      // Special case: CPI YoY from CPIAUCSL
+      // Inflation special case: compute YoY % from CPIAUCSL
       if (key === "inflationCPI") {
-        // find a point ~12 months earlier with non-missing value
-        const rev = [...obs].reverse();
-        const latestIdx = rev.findIndex((o) => o.value !== ".");
-        const twelveAgo = rev.slice(latestIdx + 12).find((o) => o.value !== ".");
-        if (twelveAgo) {
-          const vNow = parseFloat(latest.value);
-          const vThen = parseFloat(twelveAgo.value);
-          const yoy = Number.isFinite(vNow) && Number.isFinite(vThen) && vThen !== 0
-            ? ((vNow - vThen) / vThen) * 100
-            : null;
-          return { seriesId, latest: { date: latest.date, value: yoy } };
+        const latest = [...obs].reverse().find((o) => o.value !== ".");
+        const twelveAgo = [...obs]
+          .reverse()
+          .find((o, i) => o.value !== "." && i > 12); // approx 12 months back
+        if (latest && twelveAgo) {
+          const value =
+            ((parseFloat(latest.value) - parseFloat(twelveAgo.value)) /
+              parseFloat(twelveAgo.value)) *
+            100;
+          return { seriesId, latest: { date: latest.date, value } };
         }
       }
 
+      // Default case: just take latest non-missing value
+      const latest = [...obs].reverse().find((o) => o.value !== ".");
       return {
         seriesId,
-        latest: { date: latest.date, value: parseFloat(latest.value) },
+        latest: latest
+          ? { date: latest.date, value: parseFloat(latest.value) }
+          : null,
       };
     }
 
@@ -73,12 +73,12 @@ export function useFREDData() {
         const results = await Promise.all(
           Object.entries(FRED_SERIES).map(async ([key, id]) => {
             const series = await fetchSeries(id, key as FredSeriesKey);
-            return [key, series] as const;
+            return [key, series];
           })
         );
         setData(Object.fromEntries(results) as Partial<FredData>);
       } catch (err: any) {
-        setError(err?.message || "Failed to load FRED");
+        setError(err.message);
       } finally {
         setIsLoading(false);
       }

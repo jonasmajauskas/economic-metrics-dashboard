@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/ecb/:path*",
+      "destination": "https://data-api.ecb.europa.eu/:path*"
+    },
+    {
+      "source": "/api/eurostat/:path*",
+      "destination": "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/:path*"
+    },
+    {
+      "source": "/api/fred/:path*",
+      "destination": "https://api.stlouisfed.org/fred/:path*"
+    },
+    {
+      "source": "/api/fmp/:path*",
+      "destination": "https://financialmodelingprep.com/stable/api/:path*"
+    }
+  ]
+}
