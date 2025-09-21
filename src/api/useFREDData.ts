@@ -11,7 +11,7 @@ type FredSeries = {
 };
 
 const FRED_SERIES: Record<string, string> = {
-  fedFunds: "FEDFUNDS",
+  fedFunds: "DFF",
   primeRate: "MPRIME",
   inflationCPI: "CPIAUCSL",
   treasury10y: "DGS10",
@@ -46,10 +46,10 @@ const apiKey = import.meta.env.VITE_FRED_API_KEY;
       const json = await res.json();
       const obs: FredObservation[] = json.observations;
 
-    // if (seriesId === "DGS1") {
-    //   console.log("---- 1Y Treasury Raw JSON ----", json);
-    //   console.log("---- 1Y Observations ----", obs.slice(-5)); // last 5 obs
-    // }
+    if (seriesId === "FEDFUNDS") {
+      console.log("---- fedFunds", json);
+      console.log("---- 1Y Observations ----", obs.slice(-5)); // last 5 obs
+    }
       if (!obs?.length) {
         return { seriesId, latest: null };
       }
