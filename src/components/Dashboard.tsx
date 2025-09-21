@@ -197,6 +197,15 @@ const mergedInterestRates = { ...longTermRates, ...normalizeWB(bondWB) };
           <USEconomicsPanel />
         </CollapsibleContainer>
 
+                <CollapsibleContainer
+          title="Yield Curves & Credit Spreads"
+          isOpen={openSections.yieldcurves}
+          onToggle={() => toggleSection('yieldcurves')}
+          icon={<LineChart size={18} />}
+        >
+          <YieldCurvesPanel />
+        </CollapsibleContainer>
+
         <CollapsibleContainer
           title="Global Indices"
           isOpen={openSections.globalindices}
@@ -213,15 +222,6 @@ const mergedInterestRates = { ...longTermRates, ...normalizeWB(bondWB) };
           icon={<Wallet size={18} />}
         >
           <AssetsPanel />
-        </CollapsibleContainer>
-
-        <CollapsibleContainer
-          title="Yield Curves & Credit Spreads"
-          isOpen={openSections.yieldcurves}
-          onToggle={() => toggleSection('yieldcurves')}
-          icon={<LineChart size={18} />}
-        >
-          <YieldCurvesPanel />
         </CollapsibleContainer>
 
         <CollapsibleContainer

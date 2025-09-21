@@ -13,14 +13,18 @@ type FredSeries = {
 const FRED_SERIES: Record<string, string> = {
   fedFunds: "FEDFUNDS",
   primeRate: "MPRIME",
-  inflationCPI: "CPIAUCSL", // raw CPI, compute YoY later
+  inflationCPI: "CPIAUCSL",
   treasury10y: "DGS10",
   treasury2y: "DGS2",
   treasury30y: "DGS30",
   mortgage30y: "MORTGAGE30US",
   autoLoan60m: "RIFLPBCIANM60NM",
   creditCardAPR: "TERMCBCCALLNS",
+  treasury3m: "DGS3MO",   // works
+  treasury1y: "DGS1",     // closest instead of 18M
 };
+
+
 
 type FredSeriesKey = keyof typeof FRED_SERIES;
 type FredData = Record<FredSeriesKey, FredSeries>;
@@ -42,6 +46,10 @@ const apiKey = import.meta.env.VITE_FRED_API_KEY;
       const json = await res.json();
       const obs: FredObservation[] = json.observations;
 
+    // if (seriesId === "DGS1") {
+    //   console.log("---- 1Y Treasury Raw JSON ----", json);
+    //   console.log("---- 1Y Observations ----", obs.slice(-5)); // last 5 obs
+    // }
       if (!obs?.length) {
         return { seriesId, latest: null };
       }
@@ -49,6 +57,7 @@ const apiKey = import.meta.env.VITE_FRED_API_KEY;
       // Special case: compute YoY % for CPIAUCSL
       if (key === "inflationCPI") {
         const latest = [...obs].reverse().find(o => o.value !== ".");
+        
         const twelveAgo = [...obs].reverse().find((o, i) => o.value !== "." && i > 12);
         if (latest && twelveAgo) {
           const value =
@@ -61,6 +70,9 @@ const apiKey = import.meta.env.VITE_FRED_API_KEY;
 
       // Default: take latest non-missing value
       const latest = [...obs].reverse().find(o => o.value !== ".");
+//       if (seriesId === "DGS1") {
+//   console.log("1Y selected latest:", latest);
+// }
       return {
         seriesId,
         latest: latest
