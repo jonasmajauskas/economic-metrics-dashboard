@@ -21,6 +21,9 @@ const CountryFlag: React.FC<CountryFlagProps> = ({
     china: 'https://flagcdn.com/w40/cn.png',
     india: 'https://flagcdn.com/w40/in.png',
     japan: 'https://flagcdn.com/w40/jp.png',
+        brazil: 'https://flagcdn.com/w40/br.png',
+    argentina: 'https://flagcdn.com/w40/ar.png',
+    poland: 'https://flagcdn.com/w40/pl.png',
     eu: 'https://flagcdn.com/w40/eu.png'
   };
   const sizeClasses = {

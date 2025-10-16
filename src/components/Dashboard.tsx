@@ -48,76 +48,39 @@ const Dashboard: React.FC = () => {
   };
   const { data: gdpPerCap } = useECBGdpPerCapitaComputed(gdpData, population);
 
-  const { data: longTermRates } =
-    useEurostatLongTermRatesByCountry();
+  const { data: longTermRates } = useEurostatLongTermRatesByCountry();
 
-  // --- World Bank Data ---
+  // --- World Bank Data (already ISO-2 keyed) ---
   const {
     gdpData: gdpWB,
     gdpPerCapitaData: gdpPcWB,
     inflationData: inflWB,
     unemploymentData: unempWB,
     interestRateData: bondWB,
+    realWageGrowthData, // 👈 new
     isLoading: wbLoading,
     error: wbError,
   } = useWorldBankData();
 
-    // const normalizedGdpWB: ByCountryMillion = gdpWB
-    // ? Object.fromEntries(
-    //     Object.entries(gdpWB).map(([cc, { period, value }]) => [
-    //       cc,
-    //       { period, valueMillion: value },
-    //     ])
-    //   )
-    // : {};
-
-// --- Normalize World Bank data ---
-const ISO3_TO_ISO2: Record<string, string> = {
-  USA: "US",
-  CHN: "CN",
-  JPN: "JP",
-  RUS: "RU",
-  IND: "IN",
-};
-
-function normalizeWB<T extends Record<string, any> | null | undefined>(
-  data: T,
-  isGDP = false
-): Record<string, any> {
-  if (!data) return {};
-
-  const normalized: Record<string, any> = {};
-  for (const [key, value] of Object.entries(data)) {
-    const iso2 = ISO3_TO_ISO2[key] || key;
-    if (isGDP) {
-      // WB GDP is absolute → convert to millions
-      normalized[iso2] = {
-        period: (value as any).period,
-        valueMillion: (value as any).value / 1_000_000, // ✅ Convert to millions
-      };
-    } else {
-      normalized[iso2] = value;
-    }
-  }
-  return normalized;
-}
-
-
-
-// --- Merge ECB + World Bank ---
-const mergedGDP: ByCountryMillion = {
-  ...gdpData,
-  ...normalizeWB(gdpWB, true), // ✅ normalized to millions
-};
-
-
-const mergedGDPperCap = { ...gdpPerCap, ...normalizeWB(gdpPcWB) };
-const mergedInflation = { ...inflationData, ...normalizeWB(inflWB) };
-const mergedUnemployment = { ...unemploymentData, ...normalizeWB(unempWB) };
-const mergedInterestRates = { ...longTermRates, ...normalizeWB(bondWB) };
-
+  // --- Normalize WB GDP to "millions" for your table ---
+  const wbGdpAsMillions: ByCountryMillion =
+    gdpWB
+      ? Object.fromEntries(
+          Object.entries(gdpWB).map(([cc, { period, value }]) => [
+            cc,
+            { period, valueMillion: (value ?? 0) / 1_000_000 },
+          ])
+        )
+      : {};
 
   // --- Merge ECB + World Bank ---
+  const mergedGDP: ByCountryMillion = { ...gdpData, ...wbGdpAsMillions };
+  const mergedGDPperCap = { ...gdpPerCap, ...gdpPcWB };
+  const mergedInflation = { ...inflationData, ...inflWB };
+  const mergedUnemployment = { ...unemploymentData, ...unempWB };
+  const mergedInterestRates = { ...longTermRates, ...bondWB };
+  // Real wage growth is WB-only (YoY %)
+  const mergedRealWageGrowth = realWageGrowthData ?? {};
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -170,6 +133,7 @@ const mergedInterestRates = { ...longTermRates, ...normalizeWB(bondWB) };
             inflationData={mergedInflation}
             unemploymentData={mergedUnemployment}
             interestRateData={mergedInterestRates}
+            realWageGrowthData={mergedRealWageGrowth} // 👈 pass it in
           />
 
           {/* Inline non-blocking status for inflation & unemployment */}
@@ -197,7 +161,7 @@ const mergedInterestRates = { ...longTermRates, ...normalizeWB(bondWB) };
           <USEconomicsPanel />
         </CollapsibleContainer>
 
-                <CollapsibleContainer
+        <CollapsibleContainer
           title="Yield Curves & Credit Spreads"
           isOpen={openSections.yieldcurves}
           onToggle={() => toggleSection('yieldcurves')}
